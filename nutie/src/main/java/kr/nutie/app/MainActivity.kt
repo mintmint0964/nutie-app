@@ -10,7 +10,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 
@@ -18,15 +17,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private var fileCallback: ValueCallback<Array<Uri>>? = null
 
-    private val photoPicker = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+    private val documentPicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val callback = fileCallback ?: return@registerForActivityResult
+        val uri = if (result.resultCode == RESULT_OK) result.data?.data else null
+        if (uri != null) {
+            try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: SecurityException) {
+                // Some providers grant only temporary read access; WebView can still consume it now.
+            }
+        }
         callback.onReceiveValue(uri?.let { arrayOf(it) })
-        fileCallback = null
-    }
-
-    private val filePicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val callback = fileCallback ?: return@registerForActivityResult
-        callback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
         fileCallback = null
     }
 
@@ -45,7 +46,7 @@ class MainActivity : AppCompatActivity() {
             allowFileAccess = false
             allowContentAccess = true
             mediaPlaybackRequiresUserGesture = true
-            userAgentString = "$userAgentString NutieAndroid/1.0"
+            userAgentString = "$userAgentString NutieAndroid/1.1"
         }
 
         webView.webViewClient = object : WebViewClient() {
@@ -68,17 +69,16 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 fileCallback?.onReceiveValue(null)
                 fileCallback = callback
+
                 val accepts = params?.acceptTypes?.filter { it.isNotBlank() }.orEmpty()
                 val imageOnly = accepts.isEmpty() || accepts.all { it.startsWith("image/") }
-                if (imageOnly) {
-                    photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                } else {
-                    val intent = params?.createIntent() ?: Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                        type = "*/*"
-                    }
-                    filePicker.launch(intent)
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                    type = if (imageOnly) "image/*" else "*/*"
+                    if (!imageOnly && accepts.isNotEmpty()) putExtra(Intent.EXTRA_MIME_TYPES, accepts.toTypedArray())
                 }
+                documentPicker.launch(intent)
                 return true
             }
         }
