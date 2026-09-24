@@ -12,6 +12,9 @@ import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
@@ -33,8 +36,28 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Android 15 (targetSdk 35) is edge-to-edge by default. Keep the WebView
+        // out of the status-bar / camera-cutout / navigation-bar areas so Samsung
+        // display cutouts do not appear as a white capsule over the page.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
         webView = WebView(this)
         setContentView(webView)
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
+            val safeInsets = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or
+                    WindowInsetsCompat.Type.displayCutout()
+            )
+            view.setPadding(
+                safeInsets.left,
+                safeInsets.top,
+                safeInsets.right,
+                safeInsets.bottom
+            )
+            insets
+        }
+        ViewCompat.requestApplyInsets(webView)
 
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
