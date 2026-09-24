@@ -5,12 +5,14 @@ import android.net.Uri
 import android.os.Bundle
 import android.graphics.Color
 import android.view.WindowManager
+import android.view.View
 import android.webkit.CookieManager
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -51,22 +53,33 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        val container = FrameLayout(this).apply { setBackgroundColor(Color.WHITE) }
+        val safeContent = FrameLayout(this)
         webView = WebView(this)
-        setContentView(webView)
-        ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
+        safeContent.addView(webView, FrameLayout.LayoutParams(-1, -1))
+        container.addView(safeContent, FrameLayout.LayoutParams(-1, -1))
+        val statusBackground = View(this).apply { setBackgroundColor(Color.rgb(128, 184, 62)) }
+        container.addView(statusBackground, FrameLayout.LayoutParams(-1, 0))
+        setContentView(container)
+        ViewCompat.setOnApplyWindowInsetsListener(container) { view, insets ->
             val safeInsets = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or
                     WindowInsetsCompat.Type.displayCutout()
             )
-            view.setPadding(
+            // Size the WebView to the safe area. Padding on the WebView itself
+            // leaves CSS fixed-position navigation measured against the full screen.
+            safeContent.setPadding(
                 safeInsets.left,
                 safeInsets.top,
                 safeInsets.right,
                 safeInsets.bottom
             )
+            statusBackground.layoutParams = (statusBackground.layoutParams as FrameLayout.LayoutParams).apply {
+                height = safeInsets.top
+            }
             insets
         }
-        ViewCompat.requestApplyInsets(webView)
+        ViewCompat.requestApplyInsets(container)
 
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
