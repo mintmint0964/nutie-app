@@ -4,21 +4,16 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.graphics.Color
-import android.view.WindowManager
-import android.view.View
 import android.webkit.CookieManager
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.FrameLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
@@ -41,45 +36,20 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Android 15 (targetSdk 35) is edge-to-edge by default. Keep the WebView
-        // out of the status-bar / camera-cutout / navigation-bar areas so Samsung
-        // display cutouts do not appear as a white capsule over the page.
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.TRANSPARENT
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-            window.attributes = window.attributes.apply {
-                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-            }
+        // Let Android keep the WebView inside the real system-bar safe area.
+        // The website already owns its fixed header and bottom navigation, so adding
+        // another inset/padding layer here makes both bars shift or get clipped.
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        window.statusBarColor = Color.rgb(128, 184, 62)
+        window.navigationBarColor = Color.WHITE
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
         }
 
-        val container = FrameLayout(this).apply { setBackgroundColor(Color.WHITE) }
-        val safeContent = FrameLayout(this)
         webView = WebView(this)
-        safeContent.addView(webView, FrameLayout.LayoutParams(-1, -1))
-        container.addView(safeContent, FrameLayout.LayoutParams(-1, -1))
-        val statusBackground = View(this).apply { setBackgroundColor(Color.rgb(128, 184, 62)) }
-        container.addView(statusBackground, FrameLayout.LayoutParams(-1, 0))
-        setContentView(container)
-        ViewCompat.setOnApplyWindowInsetsListener(container) { view, insets ->
-            val safeInsets = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or
-                    WindowInsetsCompat.Type.displayCutout()
-            )
-            // Size the WebView to the safe area. Padding on the WebView itself
-            // leaves CSS fixed-position navigation measured against the full screen.
-            safeContent.setPadding(
-                safeInsets.left,
-                safeInsets.top,
-                safeInsets.right,
-                safeInsets.bottom
-            )
-            statusBackground.layoutParams = (statusBackground.layoutParams as FrameLayout.LayoutParams).apply {
-                height = safeInsets.top
-            }
-            insets
-        }
-        ViewCompat.requestApplyInsets(container)
+        webView.setBackgroundColor(Color.WHITE)
+        setContentView(webView)
 
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
