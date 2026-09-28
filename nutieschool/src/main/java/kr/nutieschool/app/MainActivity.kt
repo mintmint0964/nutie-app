@@ -1,8 +1,10 @@
 package kr.nutieschool.app
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.MediaStore
 import android.webkit.CookieManager
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -63,6 +65,14 @@ class MainActivity : AppCompatActivity() {
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                     type = if (imageOnly) "image/*" else "*/*"
                     if (!imageOnly && accepts.isNotEmpty()) putExtra(Intent.EXTRA_MIME_TYPES, accepts.toTypedArray())
+                }
+                if (imageOnly) {
+                    // The system document picker can show stale thumbnails for Samsung Gallery edits.
+                    try {
+                        documentPicker.launch(Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI))
+                        return true
+                    } catch (_: ActivityNotFoundException) {
+                    }
                 }
                 documentPicker.launch(intent)
                 return true
